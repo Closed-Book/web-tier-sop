@@ -1,0 +1,10 @@
+{
+  "name": "opencli-web",
+  "version": "1.0.0",
+  "description": "Vendored OpenCLI adapter runtime for the web-tier SOP. Pinned to 1.7.22.",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@jackwener/opencli": "1.7.22"
+  }
+}

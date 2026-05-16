@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.web-tier-chrome</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/Google Chrome.app/Contents/MacOS/Google Chrome</string>
+        <string>--user-data-dir=__HOME__/.web-tier-chrome-profile</string>
+        <string>--remote-debugging-port=9223</string>
+        <string>--no-first-run</string>
+        <string>--no-default-browser-check</string>
+        <string>--disable-extensions</string>
+        <string>--disable-component-update</string>
+        <string>--disable-default-apps</string>
+        <string>--disable-features=Translate,InterestFeedContentSuggestions</string>
+        <string>--disable-background-networking</string>
+        <string>--no-startup-window</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>Crashed</key>
+        <true/>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/.web-tier/chrome.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.web-tier/chrome.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>LANG</key>
+        <string>zh_CN.UTF-8</string>
+    </dict>
+</dict>
+</plist>
