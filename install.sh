@@ -32,8 +32,8 @@ Usage: ./install.sh [--host claude|codex|both]
 
 Host:
   claude  安装 web-tier/opencli-web 到 ~/.claude/skills/（默认，兼容旧行为）
-  codex   安装 codex-web-routing/web-tier/opencli-web 到 ~/.agents/skills/
-  both    同时安装 Claude Code 与 Codex 入口
+  codex   安装 web-tier/opencli-web 到 ~/.agents/skills/
+  both    同时安装到 Claude Code 与 Codex skill 目录
 EOF
 }
 
@@ -110,11 +110,11 @@ case "$HOST" in
     install_skills_to "$CLAUDE_SKILLS_DIR" web-tier opencli-web
     ;;
   codex)
-    install_skills_to "$CODEX_SKILLS_DIR" codex-web-routing web-tier opencli-web
+    install_skills_to "$CODEX_SKILLS_DIR" web-tier opencli-web
     ;;
   both)
     install_skills_to "$CLAUDE_SKILLS_DIR" web-tier opencli-web
-    install_skills_to "$CODEX_SKILLS_DIR" codex-web-routing web-tier opencli-web
+    install_skills_to "$CODEX_SKILLS_DIR" web-tier opencli-web
     ;;
 esac
 

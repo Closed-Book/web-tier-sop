@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 //
-// skills/web-tier/helper.mjs
-// Installed wrapper: ~/.web-tier/bin/web-tier-helper
+// ~/.claude/skills/web-tier/helper.mjs
 //
 // 直连独立 Chrome 9223 做 CDP 操作。零外部依赖。
 // 用 Node 22+ 原生 WebSocket（用户环境 v24.13.1 默认开启）。
