@@ -23,30 +23,30 @@ AI 日报 4 大账号：
 ## 抓取流程（helper.mjs 调用方）
 
 ```bash
-TID=$(node ~/.claude/skills/web-tier/helper.mjs new "https://x.com/AnthropicAI")
+TID=$(~/.web-tier/bin/web-tier-helper new "https://x.com/AnthropicAI")
 
 # X SPA：用 wait-for 等推文 hydrate，不要用 wait（loadEventFired 触发太早 DOM 还空）
-node ~/.claude/skills/web-tier/helper.mjs wait-for "$TID" \
+~/.web-tier/bin/web-tier-helper wait-for "$TID" \
   'document.querySelectorAll("article[data-testid=\"tweet\"]").length >= 3' \
   15000 500
 
 # 检测登录态
-LOGIN=$(node ~/.claude/skills/web-tier/helper.mjs check-login "$TID" x)
+LOGIN=$(~/.web-tier/bin/web-tier-helper check-login "$TID" x)
 if ! echo "$LOGIN" | jq -e '.logged_in == true' >/dev/null; then
-  node ~/.claude/skills/web-tier/helper.mjs alert "X 登录态失效"
-  node ~/.claude/skills/web-tier/helper.mjs close "$TID"
+  ~/.web-tier/bin/web-tier-helper alert "X 登录态失效"
+  ~/.web-tier/bin/web-tier-helper close "$TID"
   echo "[X 登录态失效，下次物理机前补]"
   exit 0  # 降级 D：飞书告警 + 跳过不中断
 fi
 
 # 抓推文（取最近 10 条）
-node ~/.claude/skills/web-tier/helper.mjs eval "$TID" "Array.from(document.querySelectorAll('article[data-testid=\"tweet\"]')).slice(0,10).map(a => ({
+~/.web-tier/bin/web-tier-helper eval "$TID" "Array.from(document.querySelectorAll('article[data-testid=\"tweet\"]')).slice(0,10).map(a => ({
   text: a.querySelector('[data-testid=\"tweetText\"]')?.innerText || '',
   time: a.querySelector('time')?.getAttribute('datetime') || '',
   isRetweet: !!a.querySelector('[data-testid=\"socialContext\"]')
 }))"
 
-node ~/.claude/skills/web-tier/helper.mjs close "$TID"
+~/.web-tier/bin/web-tier-helper close "$TID"
 ```
 
 **关键经验**：X 是 SPA，`wait` 命令的 `Page.loadEventFired` 会在 DOM 真有 article 之前就触发（实测延迟 ~2 秒）。一定要用 `wait-for` polling 等真实 selector 出现。
