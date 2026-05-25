@@ -10,7 +10,11 @@
 
 set -uo pipefail
 
-LARK_CLI="/Users/macbookpro/.nvm/versions/node/v24.13.1/bin/lark-cli"
+# 自动探测 lark-cli（兼容 nvm 任意 Node 版本 / brew / npm 全局）—— launchd PATH 极简，必须自动找
+LARK_CLI=""
+for candidate in "$HOME"/.nvm/versions/node/*/bin/lark-cli /opt/homebrew/bin/lark-cli /usr/local/bin/lark-cli; do
+    [[ -x "$candidate" ]] && LARK_CLI="$candidate" && break
+done
 LSOF="/usr/sbin/lsof"
 DATE="/bin/date"
 ALERT_OPEN_ID="ou_8a406a72e061313e431a6f7b2a931b47"
