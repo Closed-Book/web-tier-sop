@@ -1,27 +1,28 @@
 ---
 name: web-tier
-description: 任何 web 任务调用工具前必看本 skill。覆盖三层路由决策（WebFetch / 默认 web-access / 独立 Chrome 9223 重型链路）、高风控站点清单、专用路径（公众号 / localhost）、web-access 使用规则（后台静默 + Proxy 生命周期）、独立 Chrome SOP、子 agent 委派、站点经验、失效处理。
+description: 任何 web 任务调用工具前必看本 skill。覆盖**两层路由决策**（WebFetch / 默认 web-access 主 Chrome 9222 **后台 tab**）、高风控站点清单（含 X / Twitter）、专用路径（公众号 / localhost）、web-access 使用规则（后台静默 + Proxy 生命周期）、主 Chrome 9222 健康监控、子 agent 委派、站点经验、失效处理。Tier 3 独立 Brave 链路已于 2026-05-25 下线合并到 Tier 2。
 ---
 
 # Web 任务路由 SOP（必看）
 
-**任何 web 任务（搜索、抓取、调研、登录后访问）调用工具前，先看本 skill。** 跳过这一步可能导致：反爬必败、远程 SSH 时弹 GUI 卡死、proxy 暴露面残留、子 agent 锚定到错误工具失败。
+**任何 web 任务（搜索、抓取、调研、登录后访问）调用工具前，先看本 skill。** 跳过这一步可能导致：反爬必败、proxy 暴露面残留、子 agent 锚定到错误工具失败。
 
 ---
 
 ## 0. 路由决策表
 
-### 三层路由（按"轻 → 重"排序）
+### 两层路由
 
 | Tier | 工具 | 典型场景 |
 |---|---|---|
 | **1 轻量** | `WebFetch` / `WebSearch` | Wikipedia / GitHub repo+issues+PR / HN / TechCrunch / 大部分英文官方 docs |
-| **2 默认** | `web-access` skill（主 Chrome 9222 + cdp-proxy 3456） | 用户日常已登录的站点、临时调试、单次任务 |
-| **3 重型** | `web-tier`（独立 Chrome 9223，**本 skill**） | 高风控持久任务 / 远程 SSH / AI 日报定时抓 X |
+| **2 默认** | `web-access` skill（主 Chrome 9222 + cdp-proxy 3456，**后台 tab**） | 用户日常已登录的**所有**反爬站点：X / Twitter / 微博 / 知乎 / 小红书 / B站 / Instagram / 抖音 / npm / Apple docs ... |
 
-**默认策略**：能用 Tier 1 不用 Tier 2，能用 Tier 2 不用 Tier 3。但 **高风控站点必须 Tier 2 起步**，部分场景升 Tier 3。
+**默认策略**：能用 Tier 1 不用 Tier 2。Tier 2 是**唯一**承载反爬 + 登录态的链路。
 
-### 专用路径（优先匹配，不走三层）
+> 📌 **2026-05-25 架构合并**：原 Tier 3 独立 Brave Browser 9223 链路**已下线**，与 Tier 2 合并。**X / Twitter 抓取也走 Tier 2**（用户主 Chrome Default profile 已登 X 主号，sqlite Cookies 实证 auth_token 在）。底层逻辑：主 Chrome 常驻、多 profile 切换工作、不远程 SSH、AI 日报 on-demand —— 一个主 Chrome 抓手闭环所有 web 任务，少一个浏览器实例 = 少一份图标混淆 + cookies 续期 + launchd 维护。launchd plist 改名为 `.disabled` 防开机自启，Brave profile `~/.web-tier-brave-profile/` 保留供未来应急复活（详见 `~/.web-tier/ROLLBACK.md`）。
+
+### 专用路径（优先匹配，不走两层）
 
 | URL 模式 | 工具 | 说明 |
 |---|---|---|
@@ -41,7 +42,7 @@ OpenCLI 适配器作为 Tier 1/2 的加速层接入。**命中下列条件时，
 - 例外：通用英文静态页（Wikipedia / HN / arxiv）WebFetch 本就够用、速度同量级，**不强制替代**
 
 **流程二 —— `[cookie]` 命令（opt-in，非默认路径）**
-- 高风控登录站（zhihu / weibo / x / xiaohongshu / bilibili / douyin 等）**默认仍走 Tier 2/3 web-access**，OpenCLI `[cookie]` 不自动接管、不竞速、不自动路由
+- 高风控登录站（zhihu / weibo / x / xiaohongshu / bilibili / douyin 等）**默认仍走 Tier 2 web-access**，OpenCLI `[cookie]` 不自动接管、不竞速、不自动路由
 - 仅两种情况作为 opt-in 备选：①用户当前对话明确点名要用 OpenCLI 抓某站 ②web-access 已失败/超时/拒绝，兜底再试一手
 - 用时规程：先 `opencli doctor` 确认扩展在线（间歇掉线就放弃回 web-access）；命令带 25s perl alarm 超时护栏；结果须 reasoning 层判断内容真实性（cookie 命令可能返回格式合法但内容是登录墙/验证码页的 JSON）；用完 daemon stop
 - 为何 opt-in：经 3 轮 GPT 对抗 review + 实测——扩展间歇掉线、cookie 命令间歇卡死、内容可信无法机器校验，做默认路径复杂度超过收益。**不要自作主张升级成默认竞速路径**
@@ -69,7 +70,7 @@ OpenCLI 适配器作为 Tier 1/2 的加速层接入。**命中下列条件时，
 ### WebSearch 严格条件（全部满足才用）
 - 通用事实性查询（版本号、发布日期、官方文档页）
 - 不需要登录态
-- 一次失败立即切 Tier 2/3，不要重试
+- 一次失败立即切 Tier 2，不要重试
 
 **实测 GitHub 未屏蔽**（旧规则的"已知屏蔽 GitHub"假设已过期）。
 
@@ -86,6 +87,22 @@ OpenCLI 适配器作为 Tier 1/2 的加速层接入。**命中下列条件时，
 - 任务结束用 `/close` 关掉自建 tab，**绝不动用户原有 tab**
 - 执行前告诉用户一句"在后台 tab 跑 [目标]"即可，不用等确认
 - 需要用户点 Chrome "Allow remote debugging" 黄条时，提前告知："Chrome 窗口顶部会有黄色授权条要点一次 Allow，每次 Cmd+Q 完全退 Chrome 后首次连会再弹一次，日常不影响"
+
+### 高风控站点路由（2026-05-25 合并后统一 Tier 2）
+
+| 站点 | 主 Chrome 登录态 | 备注 |
+|---|---|---|
+| **x.com / twitter.com** | **Default profile 已登** ✓ | 2026-05-25 起从 Tier 3 Brave 合并到 Tier 2；如果实战发现 X cookies 过期，用户在主 Chrome 重登一次即可 |
+| weibo.com / m.weibo.cn | 已登 | WebFetch 必败（302） |
+| xiaohongshu.com | 已登 | 强反爬 |
+| zhihu.com | 已登 | WebFetch 返 403 |
+| douyin.com / tiktok.com | 已登 | 同上 |
+| bilibili.com 登录后 | 已登 | |
+| instagram.com | 已登 | 国内访问要走代理 |
+| npmjs.com 包详情 | 无需 | WebFetch 返 403 |
+| developer.apple.com | 无需 | SPA 路由 |
+
+**未列出的反爬站点默认也走 Tier 2**。架构合并后**没有 Tier 3 兜底**，主 Chrome 是唯一登录态承载。
 
 ### Proxy 生命周期：用完即 kill（安全加固）
 
@@ -104,91 +121,33 @@ OpenCLI 适配器作为 Tier 1/2 的加速层接入。**命中下列条件时，
 
 不影响 Chrome 9222 端口（Chrome 自身校验 Host header + Allow UI，由 Chrome 生命周期管理）。
 
+### 主 Chrome 9222 健康监控（唯一链路保障）
+
+合并架构下主 Chrome 9222 是**唯一**承载所有 web 任务的链路，健康监控由 launchd 守护 `com.user.chrome-9222-watchdog` 兜底：
+- 每 60s 静默检查 9222 端口
+- 持续 DOWN ≥ 5 分钟才飞书告警（避免日常 Cmd+Q / 系统重启噪声）
+- **不自动拉起 Chrome**（避免和用户日常 Cmd+Q 冲突）
+- 详细控制命令见 `~/Desktop/自动化工具记录.md` 工具 04
+
 ---
 
-## 3. Tier 3: `web-tier`（本 skill，独立 Chrome 重型链路）
+## 3. Tier 3 已下线（2026-05-25）
 
-### 何时升 Tier 3
+原独立 Brave Browser 9223 链路于 2026-05-25 与 Tier 2 合并下线。
 
-**命中任一就用本 skill**：
-1. 任务在远程 SSH 上跑 + 站点需要登录态（远程时主 Chrome 9222 的 Allow 黄条点不了）
-2. 长跑定时任务（如 AI 日报每日抓 X），需要登录态永驻
-3. 同一站点连续访问 ≥ 5 次（避免主 Chrome cdp-proxy 反复冷启动）
-4. Tier 2 默认 web-access 失败 / 拒绝 / 超时
-
-**不要用本 skill**：单次临时调试、公开静态页、用户主 Chrome 已能看到的页面。
-
-### 高风控站点路由
-
-| 站点 | 推荐 | 备注 |
+**残留资产**（保留供应急复活，用户后续可手动彻底清理）：
+| 资产 | 路径 | 用途 |
 |---|---|---|
-| **x.com / twitter.com** | **Tier 3** | 独立 profile 已预热主号；helper.mjs check-login x |
-| weibo.com / m.weibo.cn | Tier 2 | 主 Chrome 已登录；WebFetch 必败（302） |
-| xiaohongshu.com | Tier 2 | 主 Chrome 已登录；强反爬 |
-| zhihu.com | Tier 2 | 主 Chrome 已登录；WebFetch 返 403 |
-| douyin.com / tiktok.com | Tier 2 | 同上 |
-| bilibili.com 登录后 | Tier 2 | 主 Chrome 已登录 |
-| instagram.com | Tier 2 | 国内访问要走代理 |
-| npmjs.com 包详情 | Tier 2 | WebFetch 返 403 |
-| developer.apple.com | Tier 2 | SPA 路由 |
+| launchd plist（已 disable） | `~/Library/LaunchAgents/com.user.web-tier-chrome.plist.disabled` | 改名 `.disabled` 防开机自启；rename 回 `.plist` + bootstrap 即可复活 |
+| Brave profile | `~/.web-tier-brave-profile/` | 含 X 主号 cookies，复活后立即可用 |
+| 旧 Chrome profile | `~/.web-tier-chrome-profile/`（316MB） | 2026-05-14 阶段的应急备份 |
+| helper.mjs | `~/.claude/skills/web-tier/helper.mjs` | 9223 直连 CDP，下线期间不会被加载 |
+| launch.sh / health.sh | `~/.web-tier/` | 首次预热脚本 |
+| 切换备忘 | `~/.web-tier/ROLLBACK.md` | 复活流程 |
 
-未列出的反爬站点默认走 Tier 2；只有"AI 日报定时抓 + 需要登录态 + 想远程时能跑"才升 Tier 3。
+**Brave.app 本体保留**（`/Applications/Brave Browser.app`），用户可手动 `brew uninstall --cask brave-browser` 卸载。
 
-### helper.mjs 命令速查
-
-底层 CDP 工具，零依赖（Node 22+ 原生 WebSocket）：
-
-```bash
-node ~/.claude/skills/web-tier/helper.mjs <command> [args]
-```
-
-| Command | 用途 |
-|---|---|
-| `version` | 测 9223 健康 |
-| `new <url>` | 后台开 tab，输出 targetId |
-| `wait <tid> [ms]` | 等 Page.loadEventFired（多页适用） |
-| `wait-for <tid> '<js-expr>' [ms] [poll-ms]` | polling 等 JS 表达式 truthy（SPA 必备） |
-| `html <tid>` | 拿 outerHTML |
-| `eval <tid> '<js>'` | 跑 JS 拿 JSON 结果 |
-| `close <tid>` | 关 tab |
-| `list` | 列所有真页面 tab（过滤扩展） |
-| `check-login <tid> <x\|weibo\|xiaohongshu>` | 检测登录态 |
-| `refresh-cookies-from-main` | 从主 Chrome 拷 cookies 续期 |
-| `alert <message>` | lark-cli 发飞书 IM 告警到用户 vivo |
-
-完整每站抓取流程见 `references/site-patterns/<domain>.md`。预热步骤见 `README.md`。
-
-### 失效处理三层
-
-**D（默认）：飞书告警 + 跳过**
-```bash
-node ~/.claude/skills/web-tier/helper.mjs alert "X 登录态失效"
-# 任务标注 [失效，下次物理机前补]，不中断整体流程
-```
-
-**C（手动续期）：从主 Chrome 拷 cookies**
-```bash
-node ~/.claude/skills/web-tier/helper.mjs refresh-cookies-from-main
-launchctl kickstart -k gui/$(id -u)/com.user.web-tier-chrome
-```
-
-**SSH 应急（Tailscale 已配）**
-```bash
-ssh <mac-tailscale-host>
-~/.web-tier/launch.sh   # 拉起独立 Chrome（headful 但远程看不到无碍）
-# helper.mjs 操作 X 登录，密码 + 2FA 在 SSH 里输
-launchctl load ~/Library/LaunchAgents/com.user.web-tier-chrome.plist
-```
-
-### 预检与维护
-
-```bash
-~/.web-tier/health.sh                                                 # 健康诊断
-launchctl list | grep web-tier-chrome                                 # 看守护状态
-launchctl kickstart -k gui/$(id -u)/com.user.web-tier-chrome          # 重启
-launchctl unload ~/Library/LaunchAgents/com.user.web-tier-chrome.plist  # 完全停
-node ~/.claude/skills/web-tier/helper.mjs list              # 看当前 tab
-```
+**何时复活 Tier 3**：仅当主 Chrome 9222 抓 X 连续失败 ≥ 3 次 + 用户明确指示复活时（流程见 `~/.web-tier/ROLLBACK.md`）。
 
 ---
 
@@ -196,49 +155,40 @@ node ~/.claude/skills/web-tier/helper.mjs list              # 看当前 tab
 
 通过 Agent tool 派发联网子任务时：
 
-- prompt 必须明确指定路由层级或 skill。涉及反爬 / 登录态 / SPA 时，加一句"**必须加载 web-access skill（或 web-tier，按本 SOP 决策）并遵循指引**"
+- prompt 必须明确指定路由层级。涉及反爬 / 登录态 / SPA 时，加一句"**必须加载 web-access skill 并遵循指引**"
 - 用**目标动词**（获取 / 调研 / 了解 / 核实），**禁用手段动词**（搜索 / 抓取 / 爬取）—— 手段动词会把子 agent 锚定到 WebSearch，反爬站点必败
 - 多个独立目标分治给多个子 agent 并行
-- Tier 2 多 agent 共享同一主 Chrome + Proxy（tab 级隔离）；Tier 3 多 agent 共享同一独立 Chrome 9223（tab 级隔离）
+- 多 agent 共享同一主 Chrome + Proxy（tab 级隔离）
+- **prompt 末尾必须强调**：
+
+> "**Tier 2 web-access 调用必须 `background: true`，禁止 `Target.activateTarget` 切前台；用户正在主 Chrome 里多 profile 切换工作，前台不能动**"
 
 ## 5. 站点经验
 
-- Tier 2（web-access）：`ls ~/.claude/plugins/cache/web-access/web-access/*/references/site-patterns/`
-- Tier 3（本 skill）：`ls ~/.claude/skills/web-tier/references/site-patterns/`
+Tier 2 站点模式参考：`ls ~/.claude/plugins/cache/web-access/web-access/*/references/site-patterns/`
 
-CDP 操作成功后发现新 URL 模式 / 反爬行为 / 必需参数，主动写回对应 `{domain}.md`（写到操作所用 Tier 的目录）。新站点扩展流程见 `references/site-patterns/README.md`。
+CDP 操作成功后发现新 URL 模式 / 反爬行为 / 必需参数，主动写回对应 `{domain}.md`。
 
-## 6. Tier 3 与 Tier 2 的对照
-
-| 维度 | Tier 2 默认 web-access | Tier 3 本 skill |
-|---|---|---|
-| Chrome 实例 | 用户主 Chrome | 独立 Chrome |
-| 端口 | 9222 | 9223 |
-| 生命周期 | proxy 用完即 kill | launchd 守护永远在跑 |
-| 登录态 | 跟用户日常浏览器 | 独立 profile，主号 cookies |
-| 远程 SSH | 要点 Allow 黄条 | 守护进程，远程无感 |
-| 中间层 | cdp-proxy 3456 | 无 proxy，helper.mjs 直连 9223 |
-| 安全 | proxy 暴露面要 kill | Chrome 148 自带 Host 校验防 DNS rebinding |
-
-**两个 skill 并存互补，不互相替代**。
+旧 Tier 3 站点经验（`~/.claude/skills/web-tier/references/site-patterns/`）保留作为参考但**不再扩展**，新经验全部进 Tier 2 web-access 目录。
 
 ---
 
-## 反模式（全 Tier 通用）
+## 反模式
 
 - ❌ 把 `WebSearch` 当默认 —— 默认是 Tier 2 `web-access`
-- ❌ 同一搜索方式反复重试 —— 失败证据 = 换方式 / 升 Tier 的信号
+- ❌ 同一搜索方式反复重试 —— 失败证据 = 换方式
 - ❌ 让 `WebFetch` / `WebSearch` 处理反爬站点或登录后内容（看上面实测清单）
 - ❌ 用 `web-artifacts-builder` 处理搜索（它只是 artifacts 生成器）
 - ❌ 让 `webapp-testing` 做外网任务
-- ❌ 跳过"前台/后台"确认直接开 Tier 2 tab —— 用户可能正在当前 Chrome 窗口做事
-- ❌ 无脑升 Tier 3 —— 单次任务 Tier 1/2 够；Tier 3 是为持久 / 远程 / 高风控场景设计
-- ❌ Tier 3 把 `targetId` 跨进程缓存 —— tab 关了就废
-- ❌ Tier 3 循环高频 `new` 不 `close` —— tab 堆积
-- ❌ 远程时手动 `~/.web-tier/launch.sh` —— headful 启动会弹 GUI，必须物理机前预热
-- ❌ 让本 skill 处理 `mp.weixin.qq.com` 或 `localhost` —— 那些走专用 skill
+- ❌ 跳过"后台 tab" 直接切前台 —— 用户正在主 Chrome 多 profile 切换工作
+- ❌ 让本 skill 处理 `mp.weixin.qq.com` 或 `localhost` —— 走专用 skill
 - ❌ 目标站有 OpenCLI `[public]` 适配器还硬用 WebFetch —— 走流程一替代
 - ❌ 直接因关键词触发 `opencli-web` skill —— 它只能从本 SOP 的 0.5 节显式进入
-- ❌ 用 `opencli web read` 当通用网页抓取替代 web-access —— 实测漏 3/6 CSS 隐藏注入，通用抓取仍走原三层
-- ❌ 把 OpenCLI `[cookie]` 命令自作主张升级成高风控站的默认/竞速路径 —— 经 3 轮 GPT review 定为 opt-in，高风控站默认走 web-access
-- ❌ 用 `[cookie]` 命令时不带超时护栏、或只看 exit 0 不判断内容真实性 —— cookie 命令会卡死，也可能返回登录墙/验证码页的合法 JSON
+- ❌ 用 `opencli web read` 当通用网页抓取替代 web-access —— 实测漏 3/6 CSS 隐藏注入，通用抓取仍走 Tier 2
+- ❌ 把 OpenCLI `[cookie]` 命令自作主张升级成高风控站的默认/竞速路径 —— 经 3 轮 GPT review 定为 opt-in
+- ❌ 用 `[cookie]` 命令时不带超时护栏、或只看 exit 0 不判断内容真实性
+- ❌ **自作主张复活 Tier 3 独立 Brave 链路** —— 已下线（2026-05-25），未经用户明确指示不重启守护；连续 3 次失败 + 用户明示才走复活流程
+- ❌ **告警/续期/Allow 黄条提示给得太频繁** —— 用户"无感"诉求 = **只在真故障时打扰**：watchdog 已 5min 阈值，X cookies 过期才提示重登
+- ❌ **暗示用户在某个浏览器里"再登一次"账号** —— 主 Chrome Default profile 已是登录态权威；新登录站点直接走 Tier 2 即可，不要建议跨浏览器迁移登录态
+- ❌ **调用 `~/.claude/skills/web-tier/helper.mjs`** —— Tier 3 下线后 helper 是**无功能残留**（连 9223 不通即失败）；它的保留只为应急复活场景；未经"复活 Tier 3"明示禁止调用，调了必败
+- ⚠️ **风险知情（合并架构的 trade-off）**：Tier 2 抓 X 走主 Chrome Default profile cookies，如 X 触发风控（captcha / 限流），可能殃及用户日常浏览主号体验。**如发现频繁触发**：(1) 降低抓取频率；(2) 用户明示后复活 Tier 3 隔离 profile
