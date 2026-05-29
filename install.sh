@@ -59,6 +59,34 @@ if [[ "$WITH_TIER3" == "true" && ! -x "$BRAVE" ]]; then
   echo "      brew install --cask brave-browser"
 fi
 
+# 1b. 迁移检测（老用户从三层架构升级到两层）
+# 旧版 install.sh 会部署 com.user.web-tier-chrome.plist 立即 load 守护；
+# 新版默认不部署该守护。如老 plist 仍在 load，本脚本不自动 bootout（避免
+# 误杀用户在用的实例），仅提示并停止，等用户决策后手动迁移。
+if launchctl print "gui/$(id -u)/$TIER3_LABEL" >/dev/null 2>&1; then
+  cat <<MIGRATE
+
+⚠️  迁移提示：检测到旧 Tier 3 守护 ($TIER3_LABEL) 仍在 load
+
+  本机当前架构状态与新版 install.sh 默认两层架构不一致。
+  本脚本【不会】自动 bootout 旧守护，避免误杀你正在用的实例。
+
+  如确认要迁移到两层架构（推荐，详见 docs/tier3-rollback.md）：
+
+    launchctl bootout gui/\$(id -u)/$TIER3_LABEL
+    mv $LAUNCH_AGENTS/$TIER3_LABEL.plist \\
+       $LAUNCH_AGENTS/$TIER3_LABEL.plist.disabled
+    # 然后重跑本脚本: ./install.sh [--with-tier3]
+
+  如想保留旧的三层架构（不推荐）：
+    本脚本继续安装会幂等覆盖 watchdog 套件，不影响旧 Tier 3 守护运行。
+    但 SKILL.md 已是两层架构语义，子 agent 路由会改变。
+
+  本脚本暂停，请先决策后再继续 / 重跑。
+MIGRATE
+  exit 0
+fi
+
 # 2. 软链 skills 到 ~/.claude/skills
 mkdir -p "$SKILLS_DIR"
 for skill in web-tier opencli-web; do
