@@ -1,8 +1,14 @@
-# Web-Tier 一次性预热
+# Web-Tier Tier 3 独立浏览器应急复活预热
 
-**必须在物理机前（不是远程 SSH）完成这一步，约 5 分钟。**
+> ⚠️ **2026-05-25 架构已合并为两层**：默认路由是 Tier 1 `WebFetch` / Tier 2 主 Chrome 9222，**不需要本文档的预热**（默认只需 `./install.sh` + 让主 Chrome 带 `--remote-debugging-port=9222` + 启动 watchdog）。
+>
+> **本文档仅用于 Tier 3 独立浏览器应急复活**（`./install.sh --with-tier3`，仅当主 Chrome 抓 X 连续失败 ≥ 3 次且你明确要复活时）。复活背景见 [`../../docs/tier3-rollback.md`](../../docs/tier3-rollback.md)。
+>
+> 📌 下文历史措辞里的「独立 Chrome」**现已是独立 Brave**（2026-05-25 从 Google Chrome 切换）：profile 为 `~/.web-tier-brave-profile/`，端口 `9223`，二进制 `/Applications/Brave Browser.app`。命令按此对应即可。
 
-预热一次受益于所有使用本 skill 的场景（AI 日报、调研、临时抓取等）。SKILL.md 是路由 SOP，本文档只讲首次怎么把独立 Chrome 拉起来。
+**（应急复活时）必须在物理机前（不是远程 SSH）完成这一步，约 5 分钟。**
+
+SKILL.md 是两层路由 SOP，本文档只讲 Tier 3 复活时首次怎么把独立 Brave 拉起来。
 
 ## 1. 启动独立 Chrome（手动跑一次，不通过 launchd）
 
