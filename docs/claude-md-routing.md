@@ -9,12 +9,11 @@
 **任何 web 任务（搜索 / 抓取 / 调研 / 登录后访问）调用工具前，必须先加载 `web-tier` skill 并按其 SOP 决策，不得直接试 WebFetch/WebSearch。**
 
 - Tier 1 轻量：`WebFetch` / `WebSearch`（仅通用事实查询）
-- Tier 2 默认：`web-access`（Chrome 9222 + proxy 3456）
-- Tier 3 重型：`web-tier` 独立 Chrome 9223（高风控 / 强反爬）
+- Tier 2 默认：`web-access`（主 Chrome 9222 + proxy 3456，后台 tab）—— 所有反爬 + 登录态（含 X / 微博 / 知乎 …）的唯一链路
 - 专用：`fetch-rich`（公众号）/ `webapp-testing`（localhost）
 - 加速层：`opencli-web`（OpenCLI 适配器，由 web-tier 路由调用，非关键词触发）
 
-完整规则（三层判定、OpenCLI 加速层、高风控清单、安全约束、子 agent 委派、反模式）见 `web-tier` SKILL.md。
+完整规则（两层判定、OpenCLI 加速层、高风控清单、安全约束、子 agent 委派、反模式）见 `web-tier` SKILL.md。原 Tier 3 独立浏览器 9223 已于 2026-05-25 下线合并到 Tier 2。
 ```
 
 为什么需要这段：skill 的 `description` 只在语义匹配时才被 Claude 主动加载。
