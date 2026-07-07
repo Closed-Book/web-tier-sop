@@ -109,9 +109,15 @@ echo "  ✓ opencli 1.7.22 就位"
 mkdir -p "$WEB_TIER_DIR"
 
 # 4a. watchdog（始终装，两层架构唯一链路监控）
-cp "$REPO_DIR/runtime/watchdog-9222.sh" "$WEB_TIER_DIR/"
+#     渲染注入告警 open_id：从环境变量 WEB_TIER_ALERT_OPEN_ID 取值（未设留空，告警会静默失败到 log）
+sed "s|__OPEN_ID__|${WEB_TIER_ALERT_OPEN_ID:-}|g" \
+  "$REPO_DIR/runtime/watchdog-9222.sh" > "$WEB_TIER_DIR/watchdog-9222.sh"
 chmod +x "$WEB_TIER_DIR/watchdog-9222.sh"
 echo "  ✓ watchdog-9222.sh -> $WEB_TIER_DIR/"
+if [[ -z "${WEB_TIER_ALERT_OPEN_ID:-}" ]]; then
+  echo "  WARN: 未设 WEB_TIER_ALERT_OPEN_ID，watchdog 告警将无接收人。设置后重跑："
+  echo "        export WEB_TIER_ALERT_OPEN_ID=ou_xxxx && ./install.sh"
+fi
 
 # 4b. Tier 3 应急复活脚本（opt-in）
 if [[ "$WITH_TIER3" == "true" ]]; then

@@ -5,8 +5,8 @@
 # 静默模式：UP/DOWN 状态变化只写 log；持续 DOWN ≥ 5 分钟才告警一次。
 # 不自动拉起 Chrome（避免和用户日常 Cmd+Q 冲突）。
 #
-# 与 Tier 3 Brave 独立浏览器配合使用：AI 日报等高频任务走 Brave 9223，不依赖 9222 状态。
-# 主 Chrome 9222 只承担 Tier 2 偶发任务，所以静默告警对"无感"诉求最友好。
+# 2026-05-25 架构合并后主 Chrome 9222 是唯一链路，承载所有反爬 + 登录态任务；
+# watchdog 从"Tier 3 备份监控"升级为"唯一链路健康保障"，静默告警贴合"无感"诉求。
 
 set -uo pipefail
 
@@ -17,7 +17,7 @@ for candidate in "$HOME"/.nvm/versions/node/*/bin/lark-cli /opt/homebrew/bin/lar
 done
 LSOF="/usr/sbin/lsof"
 DATE="/bin/date"
-ALERT_OPEN_ID="ou_8a406a72e061313e431a6f7b2a931b47"
+ALERT_OPEN_ID="__OPEN_ID__"
 ALERT_THRESHOLD_SEC=300   # 持续 DOWN ≥ 5 分钟才告警
 
 STATE_FILE="$HOME/.web-tier/9222-watchdog.state"
@@ -52,7 +52,7 @@ if [[ "$CURRENT" == "DOWN" ]]; then
     DURATION=$((NOW_EPOCH - DOWN_SINCE))
     if [[ "$ALERTED" -eq 0 && "$DURATION" -ge "$ALERT_THRESHOLD_SEC" ]]; then
         DOWN_SINCE_HUMAN=$("$DATE" -r "$DOWN_SINCE" '+%F %T')
-        MSG="主 Chrome 9222 端口已持续失联超过 5 分钟（自 ${DOWN_SINCE_HUMAN} 起）。Tier 2 临时 web 任务受影响；AI 日报等高频任务走独立 Brave 不受影响。处置: 手动启动 Chrome 即可，启动后首次访问需点 Allow remote debugging 黄条。"
+        MSG="主 Chrome 9222 端口已持续失联超过 5 分钟（自 ${DOWN_SINCE_HUMAN} 起）。主 Chrome 是所有反爬 + 登录态 web 任务的唯一链路，期间均受影响。处置: 手动启动 Chrome 即可，启动后首次访问需点 Allow remote debugging 黄条。"
         if "$LARK_CLI" im +messages-send --user-id "$ALERT_OPEN_ID" --text "$MSG" --as bot >> "$LOG_FILE" 2>&1; then
             ALERTED=1
             echo "$NOW  发送 DOWN 告警 (持续 ${DURATION}s)" >> "$LOG_FILE"
@@ -65,7 +65,7 @@ else
     if [[ "$LAST" == "DOWN" ]]; then
         DURATION=$((NOW_EPOCH - DOWN_SINCE))
         if [[ "$ALERTED" -eq 1 ]]; then
-            MSG="主 Chrome 9222 端口已恢复 ${NOW}（DOWN 持续 ${DURATION}s）。Tier 2 临时 web 任务可用。"
+            MSG="主 Chrome 9222 端口已恢复 ${NOW}（DOWN 持续 ${DURATION}s）。web 任务链路恢复可用。"
             "$LARK_CLI" im +messages-send --user-id "$ALERT_OPEN_ID" --text "$MSG" --as bot >> "$LOG_FILE" 2>&1 || echo "$NOW  飞书恢复告警失败" >> "$LOG_FILE"
             echo "$NOW  DOWN -> UP 已发恢复告警 (DOWN 持续 ${DURATION}s)" >> "$LOG_FILE"
         else
