@@ -17,25 +17,42 @@
 set -euo pipefail
 
 WITH_TIER3=false
-for arg in "$@"; do
-  case "$arg" in
-    --with-tier3) WITH_TIER3=true ;;
+HOST=claude
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --with-tier3) WITH_TIER3=true; shift ;;
+    --host)
+      if [[ $# -lt 2 || "${2:-}" == --* ]]; then
+        echo "ERROR: --host 需要参数 claude|codex|both"; exit 1
+      fi
+      HOST="$2"; shift 2 ;;
     -h|--help)
       cat <<EOF
-Usage: $0 [--with-tier3]
+Usage: $0 [--host claude|codex|both] [--with-tier3]
 
-  默认: 仅安装两层架构（skill 软链 + opencli 依赖 + Tier 2 watchdog）
-  --with-tier3: 额外安装 Tier 3 独立 Brave 应急复活资产（launch.sh / plist disabled）
+  默认: --host claude，仅安装两层架构（skill 软链 + opencli 依赖 + Tier 2 watchdog）
+
+  --host claude  软链 web-tier/opencli-web 到 ~/.claude/skills/（默认，兼容旧行为）
+  --host codex   软链到 ~/.agents/skills/（Codex 用户级 skill 目录）
+  --host both    同时装到 Claude Code 与 Codex skill 目录
+  --with-tier3   额外安装 Tier 3 独立 Brave 应急复活资产（launch.sh / plist disabled）
 
 详见 docs/tier3-rollback.md "复活流程"。
 EOF
       exit 0
       ;;
+    *) echo "ERROR: 未知参数: $1（--help 看用法）"; exit 1 ;;
   esac
 done
 
+case "$HOST" in
+  claude|codex|both) ;;
+  *) echo "ERROR: --host 必须是 claude|codex|both"; exit 1 ;;
+esac
+
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILLS_DIR="$HOME/.claude/skills"
+CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
+CODEX_SKILLS_DIR="$HOME/.agents/skills"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 WEB_TIER_DIR="$HOME/.web-tier"
 WATCHDOG_LABEL="com.user.chrome-9222-watchdog"
@@ -44,6 +61,7 @@ BRAVE="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
 
 echo "=== web-tier SOP 安装（两层架构）==="
 echo "仓库: $REPO_DIR"
+echo "宿主: $HOST"
 if [[ "$WITH_TIER3" == "true" ]]; then
   echo "模式: 两层 + Tier 3 应急复活资产（opt-in）"
 else
@@ -87,18 +105,27 @@ MIGRATE
   exit 0
 fi
 
-# 2. 软链 skills 到 ~/.claude/skills
-mkdir -p "$SKILLS_DIR"
-for skill in web-tier opencli-web; do
-  TARGET="$SKILLS_DIR/$skill"
-  SRC="$REPO_DIR/skills/$skill"
-  if [[ -e "$TARGET" && ! -L "$TARGET" ]]; then
-    echo "WARN: $TARGET 已存在且非软链 —— 跳过。手动备份后删除再重跑本脚本。"
-    continue
-  fi
-  ln -sfn "$SRC" "$TARGET"
-  echo "  ✓ 软链 $skill -> $TARGET"
-done
+# 2. 按宿主软链 skills（claude → ~/.claude/skills，codex → ~/.agents/skills）
+install_skills_to() {
+  local skills_dir="$1"
+  mkdir -p "$skills_dir"
+  for skill in web-tier opencli-web; do
+    local target="$skills_dir/$skill"
+    local src="$REPO_DIR/skills/$skill"
+    if [[ -e "$target" && ! -L "$target" ]]; then
+      echo "WARN: $target 已存在且非软链 —— 跳过。手动备份后删除再重跑本脚本。"
+      continue
+    fi
+    ln -sfn "$src" "$target"
+    echo "  ✓ 软链 $skill -> $target"
+  done
+}
+
+case "$HOST" in
+  claude) install_skills_to "$CLAUDE_SKILLS_DIR" ;;
+  codex)  install_skills_to "$CODEX_SKILLS_DIR" ;;
+  both)   install_skills_to "$CLAUDE_SKILLS_DIR"; install_skills_to "$CODEX_SKILLS_DIR" ;;
+esac
 
 # 3. opencli-web 依赖（node_modules 不入库，从 lockfile 重建）
 echo "  安装 opencli-web 依赖（npm ci）..."

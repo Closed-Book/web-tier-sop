@@ -78,6 +78,13 @@ cd web-tier-sop
 `install.sh` 会：软链两个 skill 到 `~/.claude/skills/`、`npm ci` 装 opencli 依赖、
 拷 runtime 脚本到 `~/.web-tier/`、把 plist 模板渲染到 `~/Library/LaunchAgents/`。
 
+Codex 用户可显式指定安装目标（复用同一套 skill，仅安装目录不同）：
+
+```bash
+./install.sh --host codex    # 软链到 Codex 的 ~/.agents/skills/
+./install.sh --host both     # Claude Code 与 Codex 都装
+```
+
 之后**必须在物理机前**手动完成预热（不能远程 SSH，会弹 GUI）：
 
 ```bash
