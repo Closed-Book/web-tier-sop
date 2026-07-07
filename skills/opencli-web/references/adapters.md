@@ -22,7 +22,7 @@ weread wikidata wikipedia wttr xiaoyuzhou yahoo yollomi
 
 ## `[cookie]` 高风控登录站（流程二 opt-in 候选）
 
-需 Chrome 扩展 + 主 Chrome 登录态。这些站**默认走 web-tier Tier 2/3**，OpenCLI cookie 命令仅作 opt-in 备选（用户点名 / web-access 失败兜底）：
+需 Chrome 扩展 + 主 Chrome 登录态。这些站**默认走 web-tier Tier 2**，OpenCLI cookie 命令仅作 opt-in 备选（用户点名 / web-access 失败兜底）：
 
 | 站点 | opencli 适配器 | 实测状态 |
 |---|---|---|
@@ -36,7 +36,7 @@ weread wikidata wikipedia wttr xiaoyuzhou yahoo yollomi
 ## 不适配的能力（opencli 补不上，仍走 web-tier 原方案）
 
 - 未适配的任意站点深度交互 → web-access / web-tier helper.mjs
-- 远程 SSH 场景 → opencli 死依赖本地 Chrome+扩展，必走 web-tier Tier 3 独立 Chrome
+- 远程 SSH 场景 → opencli 死依赖本地 Chrome+扩展，走 web-tier（远程救回登录态属 Tier 3 应急复活场景，见 docs/tier3-rollback.md）
 - 复杂多步新登录（SAML+MFA）→ opencli 只复用现成登录态
 - 视频帧级分析 → 双方都没有
 - `mp.weixin.qq.com` 公众号图文 → 仍走 fetch-rich（opencli `weixin` 偏列表/草稿）
